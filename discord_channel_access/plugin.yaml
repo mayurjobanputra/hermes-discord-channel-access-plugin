@@ -1,0 +1,10 @@
+name: discord_channel_access
+version: 0.1.0
+description: Access Discord channels, threads, message history, and attachments from Hermes via a user plugin.
+author: Hermes Agent
+requires_env:
+  - DISCORD_BOT_TOKEN
+provides_tools:
+  - discord_list_channels
+  - discord_read_messages
+  - discord_download_messages

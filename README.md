@@ -11,7 +11,7 @@ This keeps `~/.hermes/hermes-agent` clean and upgradeable while still letting He
 ## Repository layout
 
 ```text
-~/Source/local/hermes-discord-channel-access-plugin/
+~/Source/MormonTranshumanistAssociation/hermes-discord-channel-access-plugin/
 ├── README.md
 ├── pyproject.toml
 ├── tests/
@@ -30,7 +30,7 @@ Install this repo into Hermes with a symlink:
 
 ```bash
 mkdir -p ~/.hermes/plugins
-ln -sfn ~/Source/local/hermes-discord-channel-access-plugin/discord_channel_access   ~/.hermes/plugins/discord_channel_access
+ln -sfn ~/Source/MormonTranshumanistAssociation/hermes-discord-channel-access-plugin/discord_channel_access   ~/.hermes/plugins/discord_channel_access
 ```
 
 No Hermes source changes are required.
@@ -46,7 +46,7 @@ No Hermes source changes are required.
 From the Hermes repo venv:
 
 ```bash
-cd ~/Source/local/hermes-discord-channel-access-plugin
+cd ~/Source/MormonTranshumanistAssociation/hermes-discord-channel-access-plugin
 ~/.hermes/hermes-agent/venv/bin/pytest tests -q
 ```
 

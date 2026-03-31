@@ -5,8 +5,9 @@ Externalized user plugin for Hermes that exposes three Discord history tools wit
 - `discord_list_channels`
 - `discord_read_messages`
 - `discord_download_messages`
+- `discord_send_message`
 
-This keeps `~/.hermes/hermes-agent` clean and upgradeable while still letting Hermes read/export Discord history where the configured bot token has permission.
+This keeps `~/.hermes/hermes-agent` clean and upgradeable while still letting Hermes read/export Discord history and post replies where the configured bot token has permission.
 
 ## Repository layout
 
@@ -40,6 +41,8 @@ No Hermes source changes are required.
 - Hermes repo available locally, usually at `~/.hermes/hermes-agent`
 - `DISCORD_BOT_TOKEN` available to Hermes
 - Bot/app has permission to read the target channels and message history
+- For posting replies: `Send Messages`, plus `Attach Files` if you want audio/file replies
+- For threaded replies: `Send Messages in Threads`
 
 ## Test
 

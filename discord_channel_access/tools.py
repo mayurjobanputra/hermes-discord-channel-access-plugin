@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 import os
 import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, Optional
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence
 
 import requests
 
@@ -56,20 +57,29 @@ class DiscordRESTClient:
         params: dict | None = None,
         stream: bool = False,
         url: str | None = None,
+        json_body: dict | None = None,
+        data: dict | None = None,
+        files: Sequence[tuple[str, tuple[str, Any, str]]] | None = None,
     ):
         target_url = url or f"{DISCORD_API_BASE}{path}"
         attempts = 0
         headers = {"Authorization": f"Bot {self.token}"}
 
         while True:
-            response = self.session.request(
-                method,
-                target_url,
-                headers=headers,
-                params=params,
-                timeout=self.timeout,
-                stream=stream,
-            )
+            request_kwargs = {
+                "headers": headers,
+                "params": params,
+                "timeout": self.timeout,
+                "stream": stream,
+            }
+            if json_body is not None:
+                request_kwargs["json"] = json_body
+            if data is not None:
+                request_kwargs["data"] = data
+            if files is not None:
+                request_kwargs["files"] = files
+
+            response = self.session.request(method, target_url, **request_kwargs)
             if response.status_code == 429 and attempts < self.max_retries:
                 retry_after = 1.0
                 try:
@@ -94,8 +104,17 @@ class DiscordRESTClient:
 
             return response
 
-    def _request_json(self, method: str, path: str, params: dict | None = None):
-        response = self._request(method, path, params=params)
+    def _request_json(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict | None = None,
+        json_body: dict | None = None,
+        data: dict | None = None,
+        files: Sequence[tuple[str, tuple[str, Any, str]]] | None = None,
+    ):
+        response = self._request(method, path, params=params, json_body=json_body, data=data, files=files)
         try:
             return response.json()
         except Exception as exc:
@@ -221,6 +240,51 @@ class DiscordRESTClient:
         messages = list(self.iter_messages(channel_id, before=before, after=after, max_messages=limit))
         return {"channel": channel, "messages": messages, "count": len(messages)}
 
+    def create_message(
+        self,
+        channel_id: str,
+        *,
+        content: str | None = None,
+        reply_to_message_id: str | None = None,
+        attachment_paths: Sequence[str | Path] | None = None,
+    ) -> dict:
+        cleaned_content = (content or "").strip()
+        paths = [Path(path).expanduser() for path in (attachment_paths or [])]
+        if not cleaned_content and not paths:
+            raise ValueError("content or attachment_paths is required")
+
+        payload: dict[str, Any] = {}
+        if cleaned_content:
+            payload["content"] = cleaned_content
+        if reply_to_message_id:
+            payload["message_reference"] = {"message_id": str(reply_to_message_id)}
+
+        if not paths:
+            message = self._request_json("POST", f"/channels/{channel_id}/messages", json_body=payload)
+            return _normalize_message(message)
+
+        files: list[tuple[str, tuple[str, Any, str]]] = []
+        handles: list[Any] = []
+        try:
+            for index, path in enumerate(paths):
+                if not path.is_file():
+                    raise FileNotFoundError(f"Attachment not found: {path}")
+                content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+                handle = path.open("rb")
+                handles.append(handle)
+                files.append((f"files[{index}]", (path.name, handle, content_type)))
+
+            message = self._request_json(
+                "POST",
+                f"/channels/{channel_id}/messages",
+                data={"payload_json": json.dumps(payload)},
+                files=files,
+            )
+            return _normalize_message(message)
+        finally:
+            for handle in handles:
+                handle.close()
+
     def iter_messages(
         self,
         channel_id: str,
@@ -334,6 +398,33 @@ def discord_download_messages(args: dict, **kwargs) -> str:
         return json.dumps(result)
     except Exception as exc:
         return json.dumps({"error": f"Failed to export Discord messages: {exc}"})
+
+
+def discord_send_message(args: dict, **kwargs) -> str:
+    try:
+        channel_id = str(args.get("channel_id", "")).strip()
+        if not channel_id:
+            return json.dumps({"error": "channel_id is required"})
+        attachment_paths = _normalize_attachment_paths(args.get("attachment_paths"))
+        client = _build_client()
+        message = client.create_message(
+            channel_id,
+            content=args.get("content"),
+            reply_to_message_id=args.get("reply_to_message_id"),
+            attachment_paths=attachment_paths,
+        )
+        return json.dumps({"success": True, "message": message})
+    except Exception as exc:
+        return json.dumps({"error": f"Failed to send Discord message: {exc}"})
+
+
+def _normalize_attachment_paths(raw: Any) -> list[str]:
+    if raw in (None, ""):
+        return []
+    if isinstance(raw, str):
+        value = raw.strip()
+        return [value] if value else []
+    return [str(item).strip() for item in raw if str(item).strip()]
 
 
 def export_history(

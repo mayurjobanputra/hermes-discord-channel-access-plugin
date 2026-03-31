@@ -8,3 +8,4 @@ provides_tools:
   - discord_list_channels
   - discord_read_messages
   - discord_download_messages
+  - discord_send_message

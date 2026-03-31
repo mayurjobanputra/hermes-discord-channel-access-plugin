@@ -41,3 +41,12 @@ def register(ctx):
         description=schemas.DOWNLOAD_MESSAGES["description"],
         emoji="📦",
     )
+    ctx.register_tool(
+        name="discord_send_message",
+        toolset="discord_channel_access",
+        schema=schemas.SEND_MESSAGE,
+        handler=tools.discord_send_message,
+        requires_env=["DISCORD_BOT_TOKEN"],
+        description=schemas.SEND_MESSAGE["description"],
+        emoji="✉️",
+    )

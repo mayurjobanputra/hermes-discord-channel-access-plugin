@@ -36,7 +36,7 @@ def test_register_requires_discord_bot_token(monkeypatch):
         register(DummyContext())
 
 
-def test_register_registers_three_tools(monkeypatch):
+def test_register_registers_four_tools(monkeypatch):
     monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
     ctx = DummyContext()
 
@@ -46,6 +46,7 @@ def test_register_registers_three_tools(monkeypatch):
         "discord_list_channels",
         "discord_read_messages",
         "discord_download_messages",
+        "discord_send_message",
     ]
 
 
@@ -165,6 +166,182 @@ def test_read_messages_returns_chronological_normalized_messages(monkeypatch):
     assert [message["id"] for message in result["messages"]] == ["m-1", "m-2"]
     assert result["messages"][0]["author"]["username"] == "alice"
     assert result["messages"][1]["attachments"][0]["filename"] == "note.txt"
+
+
+def test_create_message_posts_json_payload():
+    class Session:
+        def __init__(self):
+            self.calls = []
+
+        def request(
+            self,
+            method,
+            url,
+            headers=None,
+            params=None,
+            timeout=None,
+            stream=False,
+            json=None,
+            data=None,
+            files=None,
+        ):
+            self.calls.append(
+                {
+                    "method": method,
+                    "url": url,
+                    "headers": headers,
+                    "params": params,
+                    "timeout": timeout,
+                    "stream": stream,
+                    "json": json,
+                    "data": data,
+                    "files": files,
+                }
+            )
+            return FakeResponse(
+                200,
+                payload={
+                    "id": "m-new",
+                    "content": "hello world",
+                    "timestamp": "2026-03-31T17:00:00.000000+00:00",
+                    "author": {"id": "u-bot", "username": "parley", "global_name": "Parley's Ghost"},
+                    "attachments": [],
+                    "embeds": [],
+                },
+            )
+
+    session = Session()
+    client = plugin_tools.DiscordRESTClient("test-token", session=session, sleep_fn=lambda *_: None)
+
+    result = client.create_message("c-1", content="hello world", reply_to_message_id="m-parent")
+
+    assert result["id"] == "m-new"
+    assert result["content"] == "hello world"
+    assert len(session.calls) == 1
+    call = session.calls[0]
+    assert call["method"] == "POST"
+    assert call["url"].endswith("/channels/c-1/messages")
+    assert call["json"]["content"] == "hello world"
+    assert call["json"]["message_reference"]["message_id"] == "m-parent"
+    assert call["files"] is None
+
+
+def test_create_message_with_attachments_uses_multipart_payload(tmp_path):
+    audio_path = tmp_path / "reply.ogg"
+    audio_path.write_bytes(b"voice-bytes")
+
+    class Session:
+        def __init__(self):
+            self.calls = []
+
+        def request(
+            self,
+            method,
+            url,
+            headers=None,
+            params=None,
+            timeout=None,
+            stream=False,
+            json=None,
+            data=None,
+            files=None,
+        ):
+            file_entries = []
+            for name, payload in files or []:
+                filename, fh, content_type = payload
+                file_entries.append(
+                    {
+                        "name": name,
+                        "filename": filename,
+                        "content_type": content_type,
+                        "content": fh.read(),
+                    }
+                )
+                fh.seek(0)
+            self.calls.append(
+                {
+                    "method": method,
+                    "url": url,
+                    "headers": headers,
+                    "params": params,
+                    "timeout": timeout,
+                    "stream": stream,
+                    "json": json,
+                    "data": data,
+                    "files": file_entries,
+                }
+            )
+            return FakeResponse(
+                200,
+                payload={
+                    "id": "m-audio",
+                    "content": "voice reply",
+                    "timestamp": "2026-03-31T17:01:00.000000+00:00",
+                    "author": {"id": "u-bot", "username": "parley", "global_name": "Parley's Ghost"},
+                    "attachments": [
+                        {
+                            "id": "a-1",
+                            "filename": "reply.ogg",
+                            "url": "https://cdn.example/reply.ogg",
+                            "size": 11,
+                            "content_type": "audio/ogg",
+                        }
+                    ],
+                    "embeds": [],
+                },
+            )
+
+    session = Session()
+    client = plugin_tools.DiscordRESTClient("test-token", session=session, sleep_fn=lambda *_: None)
+
+    result = client.create_message("c-1", content="voice reply", attachment_paths=[audio_path])
+
+    assert result["id"] == "m-audio"
+    call = session.calls[0]
+    assert call["json"] is None
+    assert json.loads(call["data"]["payload_json"])["content"] == "voice reply"
+    assert call["files"][0]["name"] == "files[0]"
+    assert call["files"][0]["filename"] == "reply.ogg"
+    assert call["files"][0]["content"] == b"voice-bytes"
+
+
+def test_discord_send_message_returns_error_when_missing_content_and_attachments(monkeypatch):
+    monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
+
+    result = json.loads(plugin_tools.discord_send_message({"channel_id": "c-1"}))
+
+    assert "error" in result
+    assert "content or attachment_paths" in result["error"]
+
+
+def test_discord_send_message_uses_client(monkeypatch):
+    monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
+
+    class FakeClient:
+        def create_message(self, channel_id, *, content=None, reply_to_message_id=None, attachment_paths=None):
+            assert channel_id == "c-1"
+            assert content == "hello"
+            assert reply_to_message_id == "m-1"
+            assert attachment_paths == []
+            return {
+                "id": "m-new",
+                "content": "hello",
+                "timestamp": "2026-03-31T17:02:00.000000+00:00",
+                "author": {"id": "u-bot", "username": "parley", "display_name": "Parley's Ghost"},
+                "attachments": [],
+                "embeds": [],
+            }
+
+    monkeypatch.setattr(plugin_tools, "_build_client", lambda: FakeClient())
+
+    result = json.loads(
+        plugin_tools.discord_send_message(
+            {"channel_id": "c-1", "content": "hello", "reply_to_message_id": "m-1"}
+        )
+    )
+
+    assert result["success"] is True
+    assert result["message"]["id"] == "m-new"
 
 
 def test_export_history_writes_channel_transcript_and_manifest(tmp_path):

@@ -64,7 +64,7 @@ READ_MESSAGES = {
 DOWNLOAD_MESSAGES = {
     "name": "discord_download_messages",
     "description": (
-        "Export Discord message history to local files for one channel, one guild, or all accessible channels. "
+        "Export Discord message history to local files for one channel, one guild, or all accessible channels everywhere. "
         "Can optionally download attachments too."
     ),
     "parameters": {
@@ -119,6 +119,39 @@ DOWNLOAD_MESSAGES = {
                 "description": "Optional Discord message ID. Only export messages after this ID.",
             },
         },
+        "additionalProperties": False,
+    },
+}
+
+
+SEND_MESSAGE = {
+    "name": "discord_send_message",
+    "description": (
+        "Send a Discord message to a channel or thread the configured bot token can post to. "
+        "Can optionally reply to a message and upload local files such as audio replies."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "channel_id": {
+                "type": "string",
+                "description": "Discord channel or thread ID to send into.",
+            },
+            "content": {
+                "type": "string",
+                "description": "Optional message text. Required unless attachment_paths is provided.",
+            },
+            "reply_to_message_id": {
+                "type": "string",
+                "description": "Optional Discord message ID to reply to.",
+            },
+            "attachment_paths": {
+                "type": "array",
+                "description": "Optional local file paths to upload with the message, such as audio replies.",
+                "items": {"type": "string"},
+            },
+        },
+        "required": ["channel_id"],
         "additionalProperties": False,
     },
 }

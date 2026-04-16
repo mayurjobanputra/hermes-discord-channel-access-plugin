@@ -9,3 +9,4 @@ provides_tools:
   - discord_read_messages
   - discord_download_messages
   - discord_send_message
+  - discord_search_messages

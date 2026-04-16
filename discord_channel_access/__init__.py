@@ -50,3 +50,12 @@ def register(ctx):
         description=schemas.SEND_MESSAGE["description"],
         emoji="✉️",
     )
+    ctx.register_tool(
+        name="discord_search_messages",
+        toolset="discord_channel_access",
+        schema=schemas.SEARCH_MESSAGES,
+        handler=tools.discord_search_messages,
+        requires_env=["DISCORD_BOT_TOKEN"],
+        description=schemas.SEARCH_MESSAGES["description"],
+        emoji="🔍",
+    )

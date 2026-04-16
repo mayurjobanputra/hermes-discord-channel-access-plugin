@@ -330,6 +330,49 @@ class DiscordRESTClient:
         collected.reverse()
         yield from collected
 
+    def search_messages(
+        self,
+        guild_id: str,
+        *,
+        content: str | None = None,
+        author_id: str | None = None,
+        channel_id: str | None = None,
+        mentions_user_id: str | None = None,
+        has: str | None = None,
+        min_id: str | None = None,
+        max_id: str | None = None,
+        offset: int = 0,
+        limit: int = 25,
+    ) -> dict:
+        params: dict[str, Any] = {}
+        if content:
+            params["content"] = content
+        if author_id:
+            params["author_id"] = str(author_id)
+        if channel_id:
+            params["channel_id"] = str(channel_id)
+        if mentions_user_id:
+            params["mentions_user_id"] = str(mentions_user_id)
+        if has:
+            params["has"] = has
+        if min_id:
+            params["min_id"] = str(min_id)
+        if max_id:
+            params["max_id"] = str(max_id)
+        params["offset"] = max(0, offset)
+        params["limit"] = max(1, min(limit, 25))
+
+        payload = self._request_json("GET", f"/guilds/{guild_id}/messages/search", params=params)
+
+        total = payload.get("total_results", 0)
+        results: list[dict] = []
+        for group in payload.get("messages", []):
+            if isinstance(group, list):
+                for raw in group:
+                    results.append(_normalize_message(raw))
+
+        return {"total_results": total, "messages": results, "count": len(results)}
+
     def download_attachment(self, url: str, destination: Path) -> Path:
         response = self._request("GET", "", url=url, stream=True)
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -416,6 +459,38 @@ def discord_send_message(args: dict, **kwargs) -> str:
         return json.dumps({"success": True, "message": message})
     except Exception as exc:
         return json.dumps({"error": f"Failed to send Discord message: {exc}"})
+
+
+def discord_search_messages(args: dict, **kwargs) -> str:
+    try:
+        guild_id = str(args.get("guild_id", "")).strip()
+        if not guild_id:
+            return json.dumps({"error": "guild_id is required"})
+        content = str(args.get("content", "")).strip() or None
+        author_id = str(args.get("author_id", "")).strip() or None
+        channel_id = str(args.get("channel_id", "")).strip() or None
+        mentions_user_id = str(args.get("mentions_user_id", "")).strip() or None
+        has = str(args.get("has", "")).strip() or None
+        min_id = str(args.get("min_id", "")).strip() or None
+        max_id = str(args.get("max_id", "")).strip() or None
+        offset = int(args.get("offset", 0) or 0)
+        limit = int(args.get("limit", 25) or 25)
+        client = _build_client()
+        result = client.search_messages(
+            guild_id,
+            content=content,
+            author_id=author_id,
+            channel_id=channel_id,
+            mentions_user_id=mentions_user_id,
+            has=has,
+            min_id=min_id,
+            max_id=max_id,
+            offset=offset,
+            limit=max(1, min(limit, 25)),
+        )
+        return json.dumps(result)
+    except Exception as exc:
+        return json.dumps({"error": f"Failed to search Discord messages: {exc}"})
 
 
 def _normalize_attachment_paths(raw: Any) -> list[str]:

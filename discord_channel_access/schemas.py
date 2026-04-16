@@ -155,3 +155,65 @@ SEND_MESSAGE = {
         "additionalProperties": False,
     },
 }
+
+
+SEARCH_MESSAGES = {
+    "name": "discord_search_messages",
+    "description": (
+        "Search Discord message history across a guild/server by keyword and optional filters. "
+        "Returns matching messages with total count. Use this to find past conversations, "
+        "decisions, or context the user references."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "guild_id": {
+                "type": "string",
+                "description": "Discord guild/server ID to search within.",
+            },
+            "content": {
+                "type": "string",
+                "description": "Search query — keywords to find in message content.",
+            },
+            "author_id": {
+                "type": "string",
+                "description": "Optional: filter results to messages by this user ID.",
+            },
+            "channel_id": {
+                "type": "string",
+                "description": "Optional: limit search to a specific channel or thread ID.",
+            },
+            "mentions_user_id": {
+                "type": "string",
+                "description": "Optional: filter to messages that mention this user ID.",
+            },
+            "has": {
+                "type": "string",
+                "description": "Optional: filter by attachment type. Values: 'embed', 'link', 'poll'.",
+            },
+            "min_id": {
+                "type": "string",
+                "description": "Optional: only return messages after this message ID (newer).",
+            },
+            "max_id": {
+                "type": "string",
+                "description": "Optional: only return messages before this message ID (older).",
+            },
+            "offset": {
+                "type": "integer",
+                "description": "Pagination offset (default 0). Use to page through results.",
+                "default": 0,
+                "minimum": 0,
+            },
+            "limit": {
+                "type": "integer",
+                "description": "Results per page (1-25, default 25).",
+                "default": 25,
+                "minimum": 1,
+                "maximum": 25,
+            },
+        },
+        "required": ["guild_id"],
+        "additionalProperties": False,
+    },
+}

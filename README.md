@@ -1,18 +1,19 @@
 # Hermes Discord Channel Access Plugin
 
-Externalized user plugin for Hermes that exposes three Discord history tools without patching Hermes core:
+Externalized user plugin for Hermes that exposes Discord history tools without patching Hermes core:
 
-- `discord_list_channels`
-- `discord_read_messages`
-- `discord_download_messages`
-- `discord_send_message`
+- `discord_list_channels` — list accessible channels and threads
+- `discord_read_messages` — read messages from a channel/thread
+- `discord_download_messages` — bulk export history to local files
+- `discord_send_message` — post messages and file attachments
+- `discord_search_messages` — search message history by keyword and filters
 
 This keeps `~/.hermes/hermes-agent` clean and upgradeable while still letting Hermes read/export Discord history and post replies where the configured bot token has permission.
 
 ## Repository layout
 
 ```text
-~/Source/MormonTranshumanistAssociation/hermes-discord-channel-access-plugin/
+~/projects/hermes-discord-channel-access-plugin/
 ├── README.md
 ├── pyproject.toml
 ├── tests/
@@ -27,11 +28,11 @@ This keeps `~/.hermes/hermes-agent` clean and upgradeable while still letting He
 
 Hermes discovers user plugins from `~/.hermes/plugins/<name>/`.
 
-Install this repo into Hermes with a symlink:
+Install this repo into Hermes by copying:
 
 ```bash
 mkdir -p ~/.hermes/plugins
-ln -sfn ~/Source/MormonTranshumanistAssociation/hermes-discord-channel-access-plugin/discord_channel_access   ~/.hermes/plugins/discord_channel_access
+cp -r ~/projects/hermes-discord-channel-access-plugin/discord_channel_access ~/.hermes/plugins/
 ```
 
 No Hermes source changes are required.
@@ -49,7 +50,7 @@ No Hermes source changes are required.
 From the Hermes repo venv:
 
 ```bash
-cd ~/Source/MormonTranshumanistAssociation/hermes-discord-channel-access-plugin
+cd ~/projects/hermes-discord-channel-access-plugin
 ~/.hermes/hermes-agent/venv/bin/pytest tests -q
 ```
 
